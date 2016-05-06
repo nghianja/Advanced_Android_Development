@@ -20,7 +20,6 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.res.Resources;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
@@ -28,12 +27,14 @@ import android.graphics.Rect;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
+import android.support.v4.content.ContextCompat;
 import android.support.wearable.watchface.CanvasWatchFaceService;
 import android.support.wearable.watchface.WatchFaceStyle;
-import android.text.format.Time;
 import android.view.SurfaceHolder;
 
 import java.lang.ref.WeakReference;
+import java.util.Calendar;
+import java.util.GregorianCalendar;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
@@ -43,7 +44,7 @@ import java.util.concurrent.TimeUnit;
  */
 public class SunshineWatchFaceService extends CanvasWatchFaceService {
 
-    private static final String TAG = "SunshineWatchFaceService";
+    // private static final String TAG = "SunshineWatchFaceService";
 
     /**
      * Update rate in milliseconds for interactive mode. We update once a second to advance the
@@ -87,12 +88,14 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
         Paint mBackgroundPaint;
         Paint mHandPaint;
         boolean mAmbient;
-        Time mTime;
+        TimeZone mTimeZone;
+        GregorianCalendar mCalendar;
         final BroadcastReceiver mTimeZoneReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
-                mTime.clear(intent.getStringExtra("time-zone"));
-                mTime.setToNow();
+                String tz = intent.getStringExtra("time-zone");
+                mTimeZone = TimeZone.getTimeZone(tz);
+                mCalendar = new GregorianCalendar(mTimeZone);
             }
         };
         int mTapCount;
@@ -114,18 +117,17 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
                     .setAcceptsTapEvents(true)
                     .build());
 
-            Resources resources = SunshineWatchFaceService.this.getResources();
-
             mBackgroundPaint = new Paint();
-            mBackgroundPaint.setColor(resources.getColor(R.color.background));
+            mBackgroundPaint.setColor(ContextCompat.getColor(SunshineWatchFaceService.this, R.color.background_light));
 
             mHandPaint = new Paint();
-            mHandPaint.setColor(resources.getColor(R.color.analog_hands));
-            mHandPaint.setStrokeWidth(resources.getDimension(R.dimen.analog_hand_stroke));
+            mHandPaint.setColor(ContextCompat.getColor(SunshineWatchFaceService.this, R.color.analog_hands));
+            mHandPaint.setStrokeWidth(SunshineWatchFaceService.this.getResources().getDimension(R.dimen.analog_hand_stroke));
             mHandPaint.setAntiAlias(true);
             mHandPaint.setStrokeCap(Paint.Cap.ROUND);
 
-            mTime = new Time();
+            mTimeZone = TimeZone.getDefault();
+            mCalendar = new GregorianCalendar(mTimeZone);
         }
 
         @Override
@@ -168,7 +170,6 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
          */
         @Override
         public void onTapCommand(int tapType, int x, int y, long eventTime) {
-            Resources resources = SunshineWatchFaceService.this.getResources();
             switch (tapType) {
                 case TAP_TYPE_TOUCH:
                     // The user has started touching the screen.
@@ -179,8 +180,9 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
                 case TAP_TYPE_TAP:
                     // The user has completed the tap gesture.
                     mTapCount++;
-                    mBackgroundPaint.setColor(resources.getColor(mTapCount % 2 == 0 ?
-                            R.color.background : R.color.background2));
+                    mBackgroundPaint.setColor(
+                            ContextCompat.getColor(SunshineWatchFaceService.this,
+                                    mTapCount % 2 == 0 ? R.color.background_light : R.color.background_dark));
                     break;
             }
             invalidate();
@@ -188,7 +190,7 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
 
         @Override
         public void onDraw(Canvas canvas, Rect bounds) {
-            mTime.setToNow();
+            mCalendar = new GregorianCalendar(mTimeZone);
 
             // Draw the background.
             if (isInAmbientMode()) {
@@ -203,10 +205,10 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
             float centerX = bounds.width() / 2f;
             float centerY = bounds.height() / 2f;
 
-            float secRot = mTime.second / 30f * (float) Math.PI;
-            int minutes = mTime.minute;
+            float secRot = mCalendar.get(Calendar.SECOND) / 30f * (float) Math.PI;
+            int minutes = mCalendar.get(Calendar.MINUTE);
             float minRot = minutes / 30f * (float) Math.PI;
-            float hrRot = ((mTime.hour + (minutes / 60f)) / 6f) * (float) Math.PI;
+            float hrRot = ((mCalendar.get(Calendar.HOUR) + (minutes / 60f)) / 6f) * (float) Math.PI;
 
             float secLength = centerX - 20;
             float minLength = centerX - 40;
@@ -235,8 +237,7 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
                 registerReceiver();
 
                 // Update time zone in case it changed while we weren't visible.
-                mTime.clear(TimeZone.getDefault().getID());
-                mTime.setToNow();
+                mCalendar = new GregorianCalendar(mTimeZone);
             } else {
                 unregisterReceiver();
             }
