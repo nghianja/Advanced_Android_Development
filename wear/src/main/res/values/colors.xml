@@ -3,4 +3,5 @@
     <color name="background_light">#03A9F4</color>
     <color name="background_dark">#000088</color>
     <color name="analog_hands">#FFD740</color>
+    <color name="second_hand">#FF0000</color>
 </resources>

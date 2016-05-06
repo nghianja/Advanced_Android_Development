@@ -87,15 +87,14 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
         boolean mRegisteredTimeZoneReceiver = false;
         Paint mBackgroundPaint;
         Paint mHandPaint;
+        Paint mSecondHandPaint;
         boolean mAmbient;
-        TimeZone mTimeZone;
         GregorianCalendar mCalendar;
         final BroadcastReceiver mTimeZoneReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
                 String tz = intent.getStringExtra("time-zone");
-                mTimeZone = TimeZone.getTimeZone(tz);
-                mCalendar = new GregorianCalendar(mTimeZone);
+                mCalendar.setTimeZone(TimeZone.getTimeZone(tz));
             }
         };
         int mTapCount;
@@ -126,8 +125,13 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
             mHandPaint.setAntiAlias(true);
             mHandPaint.setStrokeCap(Paint.Cap.ROUND);
 
-            mTimeZone = TimeZone.getDefault();
-            mCalendar = new GregorianCalendar(mTimeZone);
+            mSecondHandPaint = new Paint();
+            mSecondHandPaint.setColor(ContextCompat.getColor(SunshineWatchFaceService.this, R.color.second_hand));
+            mSecondHandPaint.setStrokeWidth(SunshineWatchFaceService.this.getResources().getDimension(R.dimen.second_hand_stroke));
+            mSecondHandPaint.setAntiAlias(true);
+            mSecondHandPaint.setStrokeCap(Paint.Cap.ROUND);
+
+            mCalendar = new GregorianCalendar();
         }
 
         @Override
@@ -155,6 +159,7 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
                 mAmbient = inAmbientMode;
                 if (mLowBitAmbient) {
                     mHandPaint.setAntiAlias(!inAmbientMode);
+                    mSecondHandPaint.setAntiAlias(inAmbientMode);
                 }
                 invalidate();
             }
@@ -190,7 +195,8 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
 
         @Override
         public void onDraw(Canvas canvas, Rect bounds) {
-            mCalendar = new GregorianCalendar(mTimeZone);
+            // Update the time
+            mCalendar.setTimeInMillis(System.currentTimeMillis());
 
             // Draw the background.
             if (isInAmbientMode()) {
@@ -212,12 +218,12 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
 
             float secLength = centerX - 20;
             float minLength = centerX - 40;
-            float hrLength = centerX - 80;
+            float hrLength = centerX - 100;
 
             if (!mAmbient) {
                 float secX = (float) Math.sin(secRot) * secLength;
                 float secY = (float) -Math.cos(secRot) * secLength;
-                canvas.drawLine(centerX, centerY, centerX + secX, centerY + secY, mHandPaint);
+                canvas.drawLine(centerX, centerY, centerX + secX, centerY + secY, mSecondHandPaint);
             }
 
             float minX = (float) Math.sin(minRot) * minLength;
@@ -237,7 +243,8 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
                 registerReceiver();
 
                 // Update time zone in case it changed while we weren't visible.
-                mCalendar = new GregorianCalendar(mTimeZone);
+                mCalendar.setTimeZone(TimeZone.getDefault());
+                mCalendar.setTimeInMillis(System.currentTimeMillis());
             } else {
                 unregisterReceiver();
             }
