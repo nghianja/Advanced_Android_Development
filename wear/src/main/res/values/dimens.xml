@@ -2,4 +2,5 @@
 <resources>
     <dimen name="analog_hand_stroke">3dp</dimen>
     <dimen name="second_hand_stroke">2dp</dimen>
+    <dimen name="temperature_text_size">24sp</dimen>
 </resources>

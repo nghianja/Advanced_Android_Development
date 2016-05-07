@@ -20,6 +20,8 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
@@ -85,9 +87,12 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
     private class Engine extends CanvasWatchFaceService.Engine {
         final Handler mUpdateTimeHandler = new EngineHandler(this);
         boolean mRegisteredTimeZoneReceiver = false;
+        Bitmap mIconBitmap;
         Paint mBackgroundPaint;
         Paint mHandPaint;
         Paint mSecondHandPaint;
+        Paint mHighTextPaint;
+        Paint mLowTextPaint;
         boolean mAmbient;
         GregorianCalendar mCalendar;
         final BroadcastReceiver mTimeZoneReceiver = new BroadcastReceiver() {
@@ -98,6 +103,7 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
             }
         };
         int mTapCount;
+        String mFormat;
 
         /**
          * Whether the display supports fewer bits for each color in ambient mode. When true, we
@@ -118,6 +124,7 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
 
             mBackgroundPaint = new Paint();
             mBackgroundPaint.setColor(ContextCompat.getColor(SunshineWatchFaceService.this, R.color.background_light));
+            mIconBitmap = BitmapFactory.decodeResource(getResources(), R.drawable.ic_clear);
 
             mHandPaint = new Paint();
             mHandPaint.setColor(ContextCompat.getColor(SunshineWatchFaceService.this, R.color.analog_hands));
@@ -131,7 +138,22 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
             mSecondHandPaint.setAntiAlias(true);
             mSecondHandPaint.setStrokeCap(Paint.Cap.ROUND);
 
+            mHighTextPaint = new Paint();
+            mHighTextPaint.setColor(ContextCompat.getColor(SunshineWatchFaceService.this, R.color.white));
+            mHighTextPaint.setTextAlign(Paint.Align.CENTER);
+            mHighTextPaint.setTextSize(SunshineWatchFaceService.this.getResources().getDimensionPixelSize(R.dimen.temperature_text_size));
+            mHighTextPaint.setAntiAlias(true);
+            mHighTextPaint.setElegantTextHeight(true);
+
+            mLowTextPaint = new Paint();
+            mLowTextPaint.setColor(ContextCompat.getColor(SunshineWatchFaceService.this, R.color.grey));
+            mLowTextPaint.setTextAlign(Paint.Align.CENTER);
+            mLowTextPaint.setTextSize(SunshineWatchFaceService.this.getResources().getDimensionPixelSize(R.dimen.temperature_text_size));
+            mLowTextPaint.setAntiAlias(true);
+            mLowTextPaint.setElegantTextHeight(true);
+
             mCalendar = new GregorianCalendar();
+            mFormat = SunshineWatchFaceService.this.getString(R.string.format_temperature);
         }
 
         @Override
@@ -202,7 +224,17 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
             if (isInAmbientMode()) {
                 canvas.drawColor(Color.BLACK);
             } else {
+                float canvasX4 = canvas.getWidth() / 4f;
+                float canvasY2 = canvas.getHeight() / 2f;
+                float iconX2 = mIconBitmap.getWidth() / 2f;
+                float iconY2 = mIconBitmap.getHeight() / 2f;
+                String high = String.format(mFormat, 25f);
+                String low = String.format(mFormat, 16f);
+
                 canvas.drawRect(0, 0, canvas.getWidth(), canvas.getHeight(), mBackgroundPaint);
+                canvas.drawBitmap(mIconBitmap, canvasX4 - iconX2, canvasY2 - iconY2, null);
+                canvas.drawText(high, 0, high.length(), canvas.getWidth() - canvasX4, canvasY2 - iconY2, mHighTextPaint);
+                canvas.drawText(low, 0, low.length(), canvas.getWidth() - canvasX4, canvasY2 + mIconBitmap.getHeight(), mLowTextPaint);
             }
 
             // Find the center. Ignore the window insets so that, on round watches with a
@@ -218,7 +250,7 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
 
             float secLength = centerX - 20;
             float minLength = centerX - 40;
-            float hrLength = centerX - 100;
+            float hrLength = centerX - 80;
 
             if (!mAmbient) {
                 float secX = (float) Math.sin(secRot) * secLength;
