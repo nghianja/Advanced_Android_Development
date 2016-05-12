@@ -20,19 +20,29 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Rect;
+import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
+import android.os.PowerManager;
+import android.support.annotation.NonNull;
 import android.support.v4.content.ContextCompat;
 import android.support.wearable.watchface.CanvasWatchFaceService;
 import android.support.wearable.watchface.WatchFaceStyle;
+import android.util.Log;
 import android.view.SurfaceHolder;
+
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.wearable.Wearable;
 
 import java.lang.ref.WeakReference;
 import java.util.Calendar;
@@ -46,7 +56,7 @@ import java.util.concurrent.TimeUnit;
  */
 public class SunshineWatchFaceService extends CanvasWatchFaceService {
 
-    // private static final String TAG = "SunshineWatchFaceService";
+    private static final String TAG = "CanvasWatchFaceService";
 
     /**
      * Update rate in milliseconds for interactive mode. We update once a second to advance the
@@ -58,6 +68,48 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
      * Handler message id for updating the time periodically in interactive mode.
      */
     private static final int MSG_UPDATE_TIME = 0;
+
+    private static final String[] FORECAST_COLUMNS = {
+            WearableWeatherContract.WeatherEntry._ID,
+            WearableWeatherContract.WeatherEntry.COLUMN_WEATHER_ID,
+            WearableWeatherContract.WeatherEntry.COLUMN_MAX_TEMP,
+            WearableWeatherContract.WeatherEntry.COLUMN_MIN_TEMP
+    };
+
+    // These indices are tied to FORECAST_COLUMNS.  If FORECAST_COLUMNS changes, these must change.
+    static final int COL_WEATHER_ID = 0;
+    static final int COL_WEATHER_CONDITION_ID = 1;
+    static final int COL_WEATHER_MAX_TEMP = 2;
+    static final int COL_WEATHER_MIN_TEMP = 3;
+
+    private static int getWeatherIcon(int weatherId) {
+        // Based on weather code data found at:
+        // http://bugs.openweathermap.org/projects/api/wiki/Weather_Condition_Codes
+        if (weatherId >= 200 && weatherId <= 232) {
+            return R.drawable.ic_storm;
+        } else if (weatherId >= 300 && weatherId <= 321) {
+            return R.drawable.ic_light_rain;
+        } else if (weatherId >= 500 && weatherId <= 504) {
+            return R.drawable.ic_rain;
+        } else if (weatherId == 511) {
+            return R.drawable.ic_snow;
+        } else if (weatherId >= 520 && weatherId <= 531) {
+            return R.drawable.ic_rain;
+        } else if (weatherId >= 600 && weatherId <= 622) {
+            return R.drawable.ic_snow;
+        } else if (weatherId >= 701 && weatherId <= 761) {
+            return R.drawable.ic_fog;
+        } else if (weatherId == 761 || weatherId == 781) {
+            return R.drawable.ic_storm;
+        } else if (weatherId == 800) {
+            return R.drawable.ic_clear;
+        } else if (weatherId == 801) {
+            return R.drawable.ic_light_clouds;
+        } else if (weatherId >= 802 && weatherId <= 804) {
+            return R.drawable.ic_cloudy;
+        }
+        return -1;
+    }
 
     @Override
     public Engine onCreateEngine() {
@@ -84,7 +136,8 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
         }
     }
 
-    private class Engine extends CanvasWatchFaceService.Engine {
+    private class Engine extends CanvasWatchFaceService.Engine implements /* DataApi.DataListener, */
+            GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener {
         final Handler mUpdateTimeHandler = new EngineHandler(this);
         boolean mRegisteredTimeZoneReceiver = false;
         Bitmap mIconBitmap;
@@ -103,13 +156,24 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
             }
         };
         int mTapCount;
+        String mLocationSetting;
         String mFormat;
+        float mHighTemp;
+        float mLowTemp;
 
         /**
          * Whether the display supports fewer bits for each color in ambient mode. When true, we
          * disable anti-aliasing in ambient mode.
          */
         boolean mLowBitAmbient;
+
+        AsyncTask<String, Void, Cursor> mLoadWeatherTask;
+
+        GoogleApiClient mGoogleApiClient = new GoogleApiClient.Builder(SunshineWatchFaceService.this)
+                .addConnectionCallbacks(this)
+                .addOnConnectionFailedListener(this)
+                .addApi(Wearable.API)
+                .build();
 
         @Override
         public void onCreate(SurfaceHolder holder) {
@@ -153,7 +217,10 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
             mLowTextPaint.setElegantTextHeight(true);
 
             mCalendar = new GregorianCalendar();
+            mLocationSetting = getResources().getString(R.string.pref_location_default);
             mFormat = SunshineWatchFaceService.this.getString(R.string.format_temperature);
+            mHighTemp = 25f;
+            mLowTemp = 16f;
         }
 
         @Override
@@ -228,8 +295,8 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
                 float canvasY2 = canvas.getHeight() / 2f;
                 float iconX2 = mIconBitmap.getWidth() / 2f;
                 float iconY2 = mIconBitmap.getHeight() / 2f;
-                String high = String.format(mFormat, 25f);
-                String low = String.format(mFormat, 16f);
+                String high = String.format(mFormat, mHighTemp);
+                String low = String.format(mFormat, mLowTemp);
 
                 canvas.drawRect(0, 0, canvas.getWidth(), canvas.getHeight(), mBackgroundPaint);
                 canvas.drawBitmap(mIconBitmap, canvasX4 - iconX2, canvasY2 - iconY2, null);
@@ -332,6 +399,84 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
                 long delayMs = INTERACTIVE_UPDATE_RATE_MS
                         - (timeMs % INTERACTIVE_UPDATE_RATE_MS);
                 mUpdateTimeHandler.sendEmptyMessageDelayed(MSG_UPDATE_TIME, delayMs);
+            }
+        }
+
+        private void updateLocationSettingOnStartUp() {}
+
+        @Override  // GoogleApiClient.ConnectionCallbacks
+        public void onConnected(Bundle connectionHint) {
+            if (Log.isLoggable(TAG, Log.DEBUG)) {
+                Log.d(TAG, "onConnected: " + connectionHint);
+            }
+            // Wearable.DataApi.addListener(mGoogleApiClient, Engine.this);
+            // updateLocationSettingOnStartUp();
+        }
+
+        @Override  // GoogleApiClient.ConnectionCallbacks
+        public void onConnectionSuspended(int cause) {
+            if (Log.isLoggable(TAG, Log.DEBUG)) {
+                Log.d(TAG, "onConnectionSuspended: " + cause);
+            }
+        }
+
+        @Override  // GoogleApiClient.OnConnectionFailedListener
+        public void onConnectionFailed(@NonNull ConnectionResult result) {
+            if (Log.isLoggable(TAG, Log.DEBUG)) {
+                Log.d(TAG, "onConnectionFailed: " + result);
+            }
+        }
+
+        private void onWeatherLoaded(Cursor cursor) {
+            if (cursor != null) {
+                cursor.moveToFirst();
+                Log.d(TAG, "onWeatherLoad: " + cursor.getInt(COL_WEATHER_ID) + "," + cursor.getInt(COL_WEATHER_CONDITION_ID));
+                mIconBitmap = BitmapFactory.decodeResource(getResources(), getWeatherIcon(cursor.getInt(COL_WEATHER_CONDITION_ID)));
+                mHighTemp = cursor.getFloat(COL_WEATHER_MAX_TEMP);
+                mLowTemp = cursor.getFloat(COL_WEATHER_MIN_TEMP);
+                invalidate();
+            }
+        }
+
+        private void cancelLoadWeatherTask() {
+            if (mLoadWeatherTask != null) {
+                mLoadWeatherTask.cancel(true);
+            }
+        }
+
+        /* Asynchronous task to load today's weather from the content provider and
+         * report the forecast back using onWeatherLoaded() */
+        private class LoadWeatherTask extends AsyncTask<String, Void, Cursor> {
+            private PowerManager.WakeLock mWakeLock;
+
+            @Override
+            protected Cursor doInBackground(String... locationSettings) {
+                PowerManager powerManager = (PowerManager) getSystemService(POWER_SERVICE);
+                mWakeLock = powerManager.newWakeLock(
+                        PowerManager.PARTIAL_WAKE_LOCK, "SunshineWatchFaceWakeLock");
+                mWakeLock.acquire();
+
+                Uri uri = WearableWeatherContract.WeatherEntry
+                        .buildWeatherLocationWithDate(mLocationSetting, System.currentTimeMillis());
+                return getContentResolver().query(uri, FORECAST_COLUMNS, null, null, null);
+            }
+
+            @Override
+            protected void onPostExecute(Cursor cursor) {
+                releaseWakeLock();
+                onWeatherLoaded(cursor);
+            }
+
+            @Override
+            protected void onCancelled() {
+                releaseWakeLock();
+            }
+
+            private void releaseWakeLock() {
+                if (mWakeLock != null) {
+                    mWakeLock.release();
+                    mWakeLock = null;
+                }
             }
         }
     }

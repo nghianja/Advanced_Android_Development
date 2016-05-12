@@ -16,24 +16,38 @@
 package com.example.android.sunshine.app;
 
 import android.annotation.TargetApi;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.preference.ListPreference;
 import android.preference.Preference;
 import android.preference.PreferenceActivity;
 import android.preference.PreferenceManager;
+import android.support.annotation.NonNull;
 import android.support.design.widget.Snackbar;
+import android.support.v7.app.AlertDialog;
+import android.support.wearable.companion.WatchFaceCompanion;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
 import android.widget.ImageView;
+
 import com.example.android.sunshine.app.data.WeatherContract;
 import com.example.android.sunshine.app.sync.SunshineSyncAdapter;
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.common.api.ResultCallback;
 import com.google.android.gms.location.places.Place;
 import com.google.android.gms.location.places.ui.PlacePicker;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.wearable.DataApi;
+import com.google.android.gms.wearable.DataItem;
+import com.google.android.gms.wearable.DataMap;
+import com.google.android.gms.wearable.DataMapItem;
+import com.google.android.gms.wearable.Wearable;
 
 /**
  * A {@link PreferenceActivity} that presents a set of application settings.
@@ -43,10 +57,20 @@ import com.google.android.gms.maps.model.LatLng;
  * href="http://developer.android.com/guide/topics/ui/settings.html">Settings
  * API Guide</a> for more information on developing a Settings UI.
  */
-public class SettingsActivity extends PreferenceActivity
-        implements Preference.OnPreferenceChangeListener, SharedPreferences.OnSharedPreferenceChangeListener {
+public class SettingsActivity extends PreferenceActivity implements
+        Preference.OnPreferenceChangeListener, SharedPreferences.OnSharedPreferenceChangeListener,
+        GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener,
+        ResultCallback<DataApi.DataItemResult> {
+
+    private static final String TAG = "SettingsActivity";
+    private static final String PATH_WITH_FEATURE = "/weather/location";
+    private static final String KEY_LOCATION = "location";
+
     protected final static int PLACE_PICKER_REQUEST = 9090;
     private ImageView mAttribution;
+
+    private GoogleApiClient mGoogleApiClient;
+    private String mPeerId;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -60,7 +84,6 @@ public class SettingsActivity extends PreferenceActivity
         bindPreferenceSummaryToValue(findPreference(getString(R.string.pref_units_key)));
         bindPreferenceSummaryToValue(findPreference(getString(R.string.pref_art_pack_key)));
 
-
         // If we are using a PlacePicker location, we need to show attributions.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
             mAttribution = new ImageView(this);
@@ -72,6 +95,27 @@ public class SettingsActivity extends PreferenceActivity
 
             setListFooter(mAttribution);
         }
+
+        mGoogleApiClient = new GoogleApiClient.Builder(this)
+                .addConnectionCallbacks(this)
+                .addOnConnectionFailedListener(this)
+                .addApi(Wearable.API)
+                .build();
+        mPeerId = getIntent().getStringExtra(WatchFaceCompanion.EXTRA_PEER_ID);
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        mGoogleApiClient.connect();
+    }
+
+    @Override
+    protected void onStop() {
+        if (mGoogleApiClient != null && mGoogleApiClient.isConnected()) {
+            mGoogleApiClient.disconnect();
+        }
+        super.onStop();
     }
 
     // Registers a shared preference change listener that gets notified when preferences change
@@ -240,5 +284,62 @@ public class SettingsActivity extends PreferenceActivity
         } else {
             super.onActivityResult(requestCode, resultCode, data);
         }
+    }
+
+    @Override // GoogleApiClient.ConnectionCallbacks
+    public void onConnected(Bundle connectionHint) {
+        if (Log.isLoggable(TAG, Log.DEBUG)) {
+            Log.d(TAG, "onConnected: " + connectionHint);
+        }
+
+        if (mPeerId != null) {
+            Uri.Builder builder = new Uri.Builder();
+            Uri uri = builder.scheme("wear").path(PATH_WITH_FEATURE).authority(mPeerId).build();
+            Wearable.DataApi.getDataItem(mGoogleApiClient, uri).setResultCallback(this);
+        } else {
+            displayNoConnectedDeviceDialog();
+        }
+    }
+
+    @Override // ResultCallback<DataApi.DataItemResult>
+    public void onResult(@NonNull DataApi.DataItemResult dataItemResult) {
+        if (dataItemResult.getStatus().isSuccess() && dataItemResult.getDataItem() != null) {
+            DataItem configDataItem = dataItemResult.getDataItem();
+            DataMapItem dataMapItem = DataMapItem.fromDataItem(configDataItem);
+            DataMap config = dataMapItem.getDataMap();
+
+            SharedPreferences sharedPreferences =
+                    PreferenceManager.getDefaultSharedPreferences(this);
+            SharedPreferences.Editor editor = sharedPreferences.edit();
+            editor.putString(getString(R.string.pref_location_key), config.getString(KEY_LOCATION));
+            editor.commit();
+        }
+    }
+
+    @Override // GoogleApiClient.ConnectionCallbacks
+    public void onConnectionSuspended(int cause) {
+        if (Log.isLoggable(TAG, Log.DEBUG)) {
+            Log.d(TAG, "onConnectionSuspended: " + cause);
+        }
+    }
+
+    @Override // GoogleApiClient.OnConnectionFailedListener
+    public void onConnectionFailed(@NonNull  ConnectionResult result) {
+        if (Log.isLoggable(TAG, Log.DEBUG)) {
+            Log.d(TAG, "onConnectionFailed: " + result);
+        }
+    }
+
+    private void displayNoConnectedDeviceDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        String messageText = getResources().getString(R.string.title_no_device_connected);
+        String okText = getResources().getString(R.string.ok_no_device_connected);
+        builder.setMessage(messageText)
+                .setCancelable(false)
+                .setPositiveButton(okText, new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int id) { }
+                });
+        AlertDialog alert = builder.create();
+        alert.show();
     }
 }

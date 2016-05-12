@@ -19,6 +19,21 @@
             <meta-data android:name="com.google.android.wearable.watchface.preview_circular"
                 android:resource="@drawable/preview_analog" />
 
+            <!-- companion configuration activity -->
+            <meta-data
+                android:name=
+                    "com.google.android.wearable.watchface.companionConfigurationAction"
+                android:value=
+                    "com.udacity.nanodegree.nghianja.wear.CONFIG_LOCATION" />
+            <!-- wearable configuration activity -->
+            <!--
+            <meta-data
+                android:name=
+                    "com.google.android.wearable.watchface.wearableConfigurationAction"
+                android:value=
+                    "com.udacity.nanodegree.nghianja.wear.CONFIG_LOCATION" />
+            -->
+
             <intent-filter>
                 <action android:name="android.service.wallpaper.WallpaperService" />
 

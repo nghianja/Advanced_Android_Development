@@ -236,4 +236,7 @@
     <!-- For Google Places API Attributions -->
     <string name="attribution_text">Powered by Google</string>
 
+    <string name="title_no_device_connected">No wearable device is currently connected.</string>
+    <string name="ok_no_device_connected">OK</string>
+
 </resources>
