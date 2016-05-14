@@ -9,7 +9,19 @@
     android:paddingRight="@dimen/activity_horizontal_margin"
     android:paddingTop="@dimen/activity_vertical_margin"
     tools:context="com.example.android.sunshine.app.WatchFaceCompanionActivity">
-<!-- xmlns:custom="http://schemas.android.com/apk/res/com.example.android.sunshine.app" -->
+    <!-- xmlns:custom="http://schemas.android.com/apk/res/com.example.android.sunshine.app" -->
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Component Name"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/component"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="@dimen/activity_vertical_margin" />
 
     <!-- com.example.android.sunshine.app.LocationEditTextPreference
         android:title="@string/pref_location_label"
@@ -20,14 +32,71 @@
         custom:minLength="3"/ -->
 
     <TextView
-        android:id="@+id/label"
-        android:text="@string/pref_location_label"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content" />
+        android:layout_height="wrap_content"
+        android:text="@string/pref_location_label"
+        android:textStyle="bold" />
 
-    <EditText
+    <TextView
         android:id="@+id/location"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content" />
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="@dimen/activity_vertical_margin" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Date Time"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/datetime"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="@dimen/activity_vertical_margin" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Weather Forecast"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/forecast"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="@dimen/activity_vertical_margin" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Max Temp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/maxtemp"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="@dimen/activity_vertical_margin" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Min Temp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/mintemp"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="@dimen/activity_vertical_margin" />
+
+    <Button
+        android:id="@+id/refresh"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:enabled="false"
+        android:onClick="refresh"
+        android:text="Refresh" />
 
 </LinearLayout>

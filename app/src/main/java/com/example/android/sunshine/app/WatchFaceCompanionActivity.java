@@ -1,61 +1,80 @@
 package com.example.android.sunshine.app;
 
 import android.app.Activity;
+import android.app.LoaderManager;
 import android.content.ComponentName;
+import android.content.CursorLoader;
 import android.content.DialogInterface;
-import android.content.SharedPreferences;
+import android.content.Loader;
+import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
-import android.preference.PreferenceManager;
 import android.support.annotation.NonNull;
 import android.support.v7.app.AlertDialog;
 import android.support.wearable.companion.WatchFaceCompanion;
 import android.util.Log;
-import android.widget.EditText;
+import android.view.View;
+import android.widget.Button;
 import android.widget.TextView;
 
+import com.example.android.sunshine.app.data.WeatherContract;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
-import com.google.android.gms.common.api.PendingResult;
 import com.google.android.gms.common.api.ResultCallback;
 import com.google.android.gms.wearable.DataApi;
 import com.google.android.gms.wearable.DataItem;
 import com.google.android.gms.wearable.DataMap;
 import com.google.android.gms.wearable.DataMapItem;
-import com.google.android.gms.wearable.PutDataMapRequest;
-import com.google.android.gms.wearable.PutDataRequest;
 import com.google.android.gms.wearable.Wearable;
 
 public class WatchFaceCompanionActivity extends Activity
         implements GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener,
-        ResultCallback<DataApi.DataItemResult> {
+        ResultCallback<DataApi.DataItemResult>, LoaderManager.LoaderCallbacks<Cursor> {
     private static final String TAG = "WatchFaceCompanion";
 
     private static final String KEY_LOCATION = "LOCATION";
-    private static final String PATH_WITH_FEATURE = "/sunshine";
+    private static final String KEY_DATETIME = "DATETIME";
+    private static final String KEY_FORECAST = "FORECAST";
+    private static final String KEY_MAXTEMP = "MAXTEMP";
+    private static final String KEY_MINTEMP = "MINTEMP";
 
-    private EditText mLocation;
+    private static final String PATH_WITH_FEATURE = "/sunshine";
+    private static final int FORECAST_LOADER = 1;
+
+    private static final String[] FORECAST_COLUMNS = {
+            WeatherContract.WeatherEntry._ID,
+            WeatherContract.WeatherEntry.COLUMN_WEATHER_ID,
+            WeatherContract.WeatherEntry.COLUMN_MAX_TEMP,
+            WeatherContract.WeatherEntry.COLUMN_MIN_TEMP
+    };
+
+    // These indices are tied to FORECAST_COLUMNS.  If FORECAST_COLUMNS changes, these must change.
+    static final int COL_WEATHER_ID = 0;
+    static final int COL_WEATHER_CONDITION_ID = 1;
+    static final int COL_WEATHER_MAX_TEMP = 2;
+    static final int COL_WEATHER_MIN_TEMP = 3;
+
     private GoogleApiClient mGoogleApiClient;
     private String mPeerId;
+    private Button mButton;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_watch_face_companion);
 
-        mLocation = (EditText) findViewById(R.id.location);
         mPeerId = getIntent().getStringExtra(WatchFaceCompanion.EXTRA_PEER_ID);
         mGoogleApiClient = new GoogleApiClient.Builder(this)
                 .addConnectionCallbacks(this)
                 .addOnConnectionFailedListener(this)
                 .addApi(Wearable.API)
                 .build();
+        mButton = (Button) findViewById(R.id.refresh);
 
         ComponentName name = getIntent().getParcelableExtra(
                 WatchFaceCompanion.EXTRA_WATCH_FACE_COMPONENT);
-        TextView label = (TextView) findViewById(R.id.label);
-        String labelStr = label.getText() + " (" + name.getClassName() + ")";
-        label.setText(labelStr);
+        TextView label = (TextView) findViewById(R.id.component);
+        label.setText(name.getClassName());
     }
 
     @Override
@@ -93,9 +112,32 @@ public class WatchFaceCompanionActivity extends Activity
             DataItem configDataItem = dataItemResult.getDataItem();
             DataMapItem dataMapItem = DataMapItem.fromDataItem(configDataItem);
             DataMap config = dataMapItem.getDataMap();
-            setUpLocation(config);
+            setUpTextViews(config);
         } else {
-            setUpLocation(null);
+            setUpTextViews(null);
+        }
+        getLoaderManager().initLoader(FORECAST_LOADER, null, this);
+    }
+
+    @Override
+    public Loader<Cursor> onCreateLoader(int i, Bundle bundle) {
+        String defaultLocation = Utility.getPreferredLocation(this);
+        String defaultDatetime = "" + System.currentTimeMillis();
+        Uri uri = WeatherContract.WeatherEntry.
+                buildWeatherLocationWithDate(defaultLocation, Long.parseLong(defaultDatetime));
+
+        return new CursorLoader(this, uri, FORECAST_COLUMNS, null, null, null);
+    }
+
+    @Override
+    public void onLoadFinished(Loader<Cursor> loader, Cursor data) {
+        mButton.setEnabled(true);
+    }
+
+    @Override
+    public void onLoaderReset(Loader<Cursor> loader) {
+        if (Log.isLoggable(TAG, Log.DEBUG)) {
+            Log.d(TAG, "onLoaderReset: ");
         }
     }
 
@@ -113,29 +155,25 @@ public class WatchFaceCompanionActivity extends Activity
         }
     }
 
-    private void setUpLocation(DataMap config) {
-        SharedPreferences sp = PreferenceManager.getDefaultSharedPreferences(this);
-        String defaultLocation = sp.getString(getString(R.string.pref_location_key),
-                getString(R.string.pref_location_default));
+    public void refresh(View view) {
+        mButton.setEnabled(false);
+        getLoaderManager().restartLoader(FORECAST_LOADER, null, this);
+    }
 
+    private void setUpTextViews(DataMap config) {
+        setUpTextView(R.id.location, KEY_LOCATION, config, "");
+        setUpTextView(R.id.datetime, KEY_DATETIME, config, "");
+        setUpTextView(R.id.forecast, KEY_FORECAST, config, "");
+        setUpTextView(R.id.maxtemp, KEY_MAXTEMP, config, "");
+        setUpTextView(R.id.mintemp, KEY_MINTEMP, config, "");
+    }
+
+    private void setUpTextView(int id, final String configKey, DataMap config, String defaultText) {
+        TextView textview = (TextView) findViewById(id);
         if (config != null) {
-            mLocation.setText(config.getString(KEY_LOCATION));
-            // TODO: Check whether location has changed since last connected; save to preference if yes
+            textview.setText(config.getString(configKey, defaultText));
         } else {
-            mLocation.setText(defaultLocation);
-            PutDataMapRequest putDataMapReq = PutDataMapRequest.create(PATH_WITH_FEATURE);
-            putDataMapReq.getDataMap().putString(KEY_LOCATION, defaultLocation);
-            PutDataRequest putDataReq = putDataMapReq.asPutDataRequest();
-            PendingResult<DataApi.DataItemResult> pendingResult =
-                    Wearable.DataApi.putDataItem(mGoogleApiClient, putDataReq);
-            pendingResult.setResultCallback(new ResultCallback<DataApi.DataItemResult>() {
-                @Override
-                public void onResult(@NonNull final DataApi.DataItemResult result) {
-                    if(result.getStatus().isSuccess()) {
-                        Log.d(TAG, "Data item set: " + result.getDataItem().getUri());
-                    }
-                }
-            });
+            textview.setText(defaultText);
         }
     }
 
