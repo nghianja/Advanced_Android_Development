@@ -24,14 +24,14 @@
                 android:name=
                     "com.google.android.wearable.watchface.companionConfigurationAction"
                 android:value=
-                    "com.udacity.nanodegree.nghianja.wear.CONFIG_LOCATION" />
+                    "com.example.android.sunshine.app.CONFIG_SUNSHINE" />
             <!-- wearable configuration activity -->
             <!--
             <meta-data
                 android:name=
                     "com.google.android.wearable.watchface.wearableConfigurationAction"
                 android:value=
-                    "com.udacity.nanodegree.nghianja.wear.CONFIG_LOCATION" />
+                    "com.udacity.nanodegree.nghianja.wear.CONFIG_SUNSHINE" />
             -->
 
             <intent-filter>

@@ -76,7 +76,7 @@
         </activity>
         <activity android:name=".WatchFaceCompanionActivity">
             <intent-filter>
-                <action android:name="com.udacity.nanodegree.nghianja.wear.CONFIG_LOCATION" />
+                <action android:name="com.example.android.sunshine.app.CONFIG_SUNSHINE" />
 
                 <category android:name="com.google.android.wearable.watchface.category.COMPANION_CONFIGURATION" />
                 <category android:name="android.intent.category.DEFAULT" />
