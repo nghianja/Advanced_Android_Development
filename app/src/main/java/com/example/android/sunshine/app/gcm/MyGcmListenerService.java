@@ -107,4 +107,8 @@ public class MyGcmListenerService extends GcmListenerService {
         mBuilder.setContentIntent(contentIntent);
         mNotificationManager.notify(NOTIFICATION_ID, mBuilder.build());
     }
+
+    /**
+     * TODO: Sync today's weather data to watch face when a GCM alert message is received.
+     */
 }

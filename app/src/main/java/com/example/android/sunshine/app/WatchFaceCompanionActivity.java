@@ -20,14 +20,11 @@ import android.widget.TextView;
 import com.example.android.sunshine.app.data.WeatherContract;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
-import com.google.android.gms.common.api.PendingResult;
 import com.google.android.gms.common.api.ResultCallback;
 import com.google.android.gms.wearable.DataApi;
 import com.google.android.gms.wearable.DataItem;
 import com.google.android.gms.wearable.DataMap;
 import com.google.android.gms.wearable.DataMapItem;
-import com.google.android.gms.wearable.PutDataMapRequest;
-import com.google.android.gms.wearable.PutDataRequest;
 import com.google.android.gms.wearable.Wearable;
 
 public class WatchFaceCompanionActivity extends Activity
@@ -44,7 +41,7 @@ public class WatchFaceCompanionActivity extends Activity
     private static final int FORECAST_LOADER = 1;
 
     private static final String[] FORECAST_COLUMNS = {
-            WeatherContract.WeatherEntry._ID,
+            WeatherContract.WeatherEntry.TABLE_NAME + "." + WeatherContract.WeatherEntry._ID,
             WeatherContract.WeatherEntry.COLUMN_WEATHER_ID,
             WeatherContract.WeatherEntry.COLUMN_MAX_TEMP,
             WeatherContract.WeatherEntry.COLUMN_MIN_TEMP
@@ -80,7 +77,11 @@ public class WatchFaceCompanionActivity extends Activity
         ComponentName name = getIntent().getParcelableExtra(
                 WatchFaceCompanion.EXTRA_WATCH_FACE_COMPONENT);
         TextView label = (TextView) findViewById(R.id.component);
-        label.setText(name.getClassName());
+        if (name != null) {
+            label.setText(name.getClassName());
+        }
+
+        getLoaderManager().initLoader(FORECAST_LOADER, null, this); // for testing
     }
 
     @Override
@@ -129,7 +130,7 @@ public class WatchFaceCompanionActivity extends Activity
     public Loader<Cursor> onCreateLoader(int i, Bundle bundle) {
         String locationSetting = Utility.getPreferredLocation(this);
         String locationString = mLocation.getText().toString();
-        if (!locationString.equals(locationSetting)) {
+        if (!locationString.equals("") && !locationString.equals(locationSetting)) {
             locationSetting= locationString;
         }
         long date = System.currentTimeMillis();
@@ -148,24 +149,14 @@ public class WatchFaceCompanionActivity extends Activity
         if (data.moveToNext()) {
             Log.d(TAG, "onLoadFinished: " + data.getInt(COL_WEATHER_ID));
 
-            PutDataMapRequest putDataMapReq = PutDataMapRequest.create(Utility.PATH_WITH_FEATURE);
-            putDataMapReq.getDataMap().putString(KEY_LOCATION, mLocation.getText().toString());
-            putDataMapReq.getDataMap().putString(KEY_DATETIME, mDatetime.getText().toString());
-            putDataMapReq.getDataMap().putInt(KEY_FORECAST, data.getInt(COL_WEATHER_CONDITION_ID));
-            putDataMapReq.getDataMap().putFloat(KEY_MAXTEMP, data.getFloat(COL_WEATHER_MAX_TEMP));
-            putDataMapReq.getDataMap().putFloat(KEY_MINTEMP, data.getFloat(COL_WEATHER_MIN_TEMP));
+            DataMap dataMap = new DataMap();
+            dataMap.putString(KEY_LOCATION, mLocation.getText().toString());
+            dataMap.putString(KEY_DATETIME, mDatetime.getText().toString());
+            dataMap.putInt(KEY_FORECAST, data.getInt(COL_WEATHER_CONDITION_ID));
+            dataMap.putFloat(KEY_MAXTEMP, data.getFloat(COL_WEATHER_MAX_TEMP));
+            dataMap.putFloat(KEY_MINTEMP, data.getFloat(COL_WEATHER_MIN_TEMP));
 
-            PutDataRequest putDataReq = putDataMapReq.asPutDataRequest();
-            PendingResult<DataApi.DataItemResult> pendingResult =
-                    Wearable.DataApi.putDataItem(mGoogleApiClient, putDataReq);
-            pendingResult.setResultCallback(new ResultCallback<DataApi.DataItemResult>() {
-                @Override
-                public void onResult(@NonNull final DataApi.DataItemResult result) {
-                    if(result.getStatus().isSuccess()) {
-                        Log.d(TAG, "Data item set: " + result.getDataItem().getUri());
-                    }
-                }
-            });
+            Utility.putConfigDataItem(mGoogleApiClient, dataMap);
 
             ((TextView) findViewById(R.id.forecast)).setText(String.valueOf(data.getInt(COL_WEATHER_CONDITION_ID)));
             ((TextView) findViewById(R.id.maxtemp)).setText(String.valueOf(data.getFloat(COL_WEATHER_MAX_TEMP)));

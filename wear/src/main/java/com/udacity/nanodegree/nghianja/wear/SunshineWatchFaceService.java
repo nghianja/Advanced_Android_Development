@@ -44,6 +44,8 @@ import com.google.android.gms.wearable.DataApi;
 import com.google.android.gms.wearable.DataEvent;
 import com.google.android.gms.wearable.DataEventBuffer;
 import com.google.android.gms.wearable.DataItem;
+import com.google.android.gms.wearable.DataMap;
+import com.google.android.gms.wearable.DataMapItem;
 import com.google.android.gms.wearable.Wearable;
 
 import java.lang.ref.WeakReference;
@@ -72,17 +74,23 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
     private static final int MSG_UPDATE_TIME = 0;
 
     private static final String[] FORECAST_COLUMNS = {
-            WearableWeatherContract.WeatherEntry._ID,
+            WearableWeatherContract.WeatherEntry.TABLE_NAME + "." + WearableWeatherContract.WeatherEntry._ID,
             WearableWeatherContract.WeatherEntry.COLUMN_WEATHER_ID,
             WearableWeatherContract.WeatherEntry.COLUMN_MAX_TEMP,
             WearableWeatherContract.WeatherEntry.COLUMN_MIN_TEMP
     };
 
     // These indices are tied to FORECAST_COLUMNS.  If FORECAST_COLUMNS changes, these must change.
-    static final int COL_WEATHER_ID = 0;
-    static final int COL_WEATHER_CONDITION_ID = 1;
-    static final int COL_WEATHER_MAX_TEMP = 2;
-    static final int COL_WEATHER_MIN_TEMP = 3;
+    private static final int COL_WEATHER_ID = 0;
+    private static final int COL_WEATHER_CONDITION_ID = 1;
+    private static final int COL_WEATHER_MAX_TEMP = 2;
+    private static final int COL_WEATHER_MIN_TEMP = 3;
+
+    private static final String KEY_LOCATION = "LOCATION";
+    private static final String KEY_DATETIME = "DATETIME";
+    private static final String KEY_FORECAST = "FORECAST";
+    private static final String KEY_MAXTEMP = "MAXTEMP";
+    private static final String KEY_MINTEMP = "MINTEMP";
 
     private static int getWeatherIcon(int weatherId) {
         // Based on weather code data found at:
@@ -350,7 +358,7 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
             } else {
                 unregisterReceiver();
                 if (mGoogleApiClient != null && mGoogleApiClient.isConnected()) {
-                    // Wearable.DataApi.removeListener(mGoogleApiClient, this);
+                    Wearable.DataApi.removeListener(mGoogleApiClient, this);
                     mGoogleApiClient.disconnect();
                 }
 
@@ -423,8 +431,45 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
                         SunshineWatchFaceUtility.PATH_WITH_FEATURE)) {
                     continue;
                 }
-                
+
+                DataMapItem dataMapItem = DataMapItem.fromDataItem(dataItem);
+                DataMap config = dataMapItem.getDataMap();
+                if (Log.isLoggable(TAG, Log.DEBUG)) {
+                    Log.d(TAG, "Config DataItem updated:" + config);
+                }
+                updateWatchFace(config);
             }
+        }
+
+        private void updateWatchFace(final DataMap config) {
+            boolean uiUpdated = false;
+            if (config.containsKey(KEY_FORECAST) && config.getInt(KEY_FORECAST) != 0) {
+                mIconBitmap = BitmapFactory.decodeResource(getResources(),
+                        getWeatherIcon(config.getInt(KEY_FORECAST)));
+                uiUpdated = true;
+            }
+            if (config.containsKey(KEY_MAXTEMP)) {
+                mHighTemp = config.getFloat(KEY_MAXTEMP);
+                uiUpdated = true;
+            }
+            if (config.containsKey(KEY_MINTEMP)) {
+                mLowTemp = config.getFloat(KEY_MINTEMP);
+                uiUpdated = true;
+            }
+            if (uiUpdated) {
+                invalidate();
+            }
+        }
+
+        private void updateWatchFaceOnStartUp() {
+            SunshineWatchFaceUtility.fetchConfigDataMap(mGoogleApiClient,
+                    new SunshineWatchFaceUtility.FetchConfigDataMapCallback() {
+                        @Override
+                        public void onConfigDataMapFetched(DataMap startupConfig) {
+                            updateWatchFace(startupConfig);
+                        }
+                    }
+            );
         }
 
         private void onWeatherLoaded(Cursor cursor) {
@@ -450,7 +495,7 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
                 Log.d(TAG, "onConnected: " + connectionHint);
             }
             Wearable.DataApi.addListener(mGoogleApiClient, Engine.this);
-            // updateWatchFaceOnStartUp();
+            updateWatchFaceOnStartUp();
         }
 
         @Override  // GoogleApiClient.ConnectionCallbacks
