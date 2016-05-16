@@ -147,7 +147,7 @@ public class WatchFaceCompanionActivity extends Activity
     @Override
     public void onLoadFinished(Loader<Cursor> loader, Cursor data) {
         if (data.moveToNext()) {
-            Log.d(TAG, "onWeatherLoad: " + data.getInt(COL_WEATHER_ID));
+            Log.d(TAG, "onLoadFinished: " + data.getInt(COL_WEATHER_ID));
 
             PutDataMapRequest putDataMapReq = PutDataMapRequest.create(PATH_WITH_FEATURE);
             putDataMapReq.getDataMap().putString(KEY_LOCATION, mLocation.getText().toString());

@@ -21,8 +21,15 @@ import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.preference.PreferenceManager;
 import android.text.format.Time;
+import android.util.Log;
 
 import com.example.android.sunshine.app.sync.SunshineSyncAdapter;
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.common.api.ResultCallback;
+import com.google.android.gms.wearable.DataApi;
+import com.google.android.gms.wearable.DataMap;
+import com.google.android.gms.wearable.PutDataMapRequest;
+import com.google.android.gms.wearable.Wearable;
 
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
@@ -30,6 +37,9 @@ import java.util.Date;
 import java.util.Locale;
 
 public class Utility {
+    private static final String TAG = "Utility";
+    private static final String PATH_WITH_FEATURE = "/sunshine";
+
     // We'll default our latlong to 0. Yay, "Earth!"
     public static float DEFAULT_LATLONG = 0F;
 
@@ -598,5 +608,21 @@ public class Utility {
         SharedPreferences.Editor spe = sp.edit();
         spe.putInt(c.getString(R.string.pref_location_status_key), SunshineSyncAdapter.LOCATION_STATUS_UNKNOWN);
         spe.apply();
+    }
+
+    public static void putConfigDataItem(GoogleApiClient googleApiClient, DataMap newConfig) {
+        PutDataMapRequest putDataMapRequest = PutDataMapRequest.create(PATH_WITH_FEATURE);
+        putDataMapRequest.setUrgent();
+        DataMap configToPut = putDataMapRequest.getDataMap();
+        configToPut.putAll(newConfig);
+        Wearable.DataApi.putDataItem(googleApiClient, putDataMapRequest.asPutDataRequest())
+                .setResultCallback(new ResultCallback<DataApi.DataItemResult>() {
+                    @Override
+                    public void onResult(DataApi.DataItemResult dataItemResult) {
+                        if (Log.isLoggable(TAG, Log.DEBUG)) {
+                            Log.d(TAG, "putDataItem result status: " + dataItemResult.getStatus());
+                        }
+                    }
+                });
     }
 }

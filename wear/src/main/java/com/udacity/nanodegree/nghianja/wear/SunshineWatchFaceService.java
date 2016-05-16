@@ -20,12 +20,14 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Rect;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
@@ -64,6 +66,19 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
      * Handler message id for updating the time periodically in interactive mode.
      */
     private static final int MSG_UPDATE_TIME = 0;
+
+    private static final String[] FORECAST_COLUMNS = {
+            WearableWeatherContract.WeatherEntry._ID,
+            WearableWeatherContract.WeatherEntry.COLUMN_WEATHER_ID,
+            WearableWeatherContract.WeatherEntry.COLUMN_MAX_TEMP,
+            WearableWeatherContract.WeatherEntry.COLUMN_MIN_TEMP
+    };
+
+    // These indices are tied to FORECAST_COLUMNS.  If FORECAST_COLUMNS changes, these must change.
+    static final int COL_WEATHER_ID = 0;
+    static final int COL_WEATHER_CONDITION_ID = 1;
+    static final int COL_WEATHER_MAX_TEMP = 2;
+    static final int COL_WEATHER_MIN_TEMP = 3;
 
     private static int getWeatherIcon(int weatherId) {
         // Based on weather code data found at:
@@ -149,6 +164,8 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
          * disable anti-aliasing in ambient mode.
          */
         boolean mLowBitAmbient;
+
+        AsyncTask<String, Void, Cursor> mLoadWeatherTask;
 
         GoogleApiClient mGoogleApiClient = new GoogleApiClient.Builder(SunshineWatchFaceService.this)
                 .addConnectionCallbacks(this)
@@ -320,6 +337,7 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
             super.onVisibilityChanged(visible);
 
             if (visible) {
+                mGoogleApiClient.connect();
                 registerReceiver();
 
                 // Update time zone in case it changed while we weren't visible.
@@ -327,6 +345,12 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
                 mCalendar.setTimeInMillis(System.currentTimeMillis());
             } else {
                 unregisterReceiver();
+                if (mGoogleApiClient != null && mGoogleApiClient.isConnected()) {
+                    // Wearable.DataApi.removeListener(mGoogleApiClient, this);
+                    mGoogleApiClient.disconnect();
+                }
+
+                cancelLoadWeatherTask();
             }
 
             // Whether the timer should be running depends on whether we're visible (as well as
@@ -383,7 +407,22 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
             }
         }
 
-        private void updateWatchFaceOnStartUp() {}
+        private void onWeatherLoaded(Cursor cursor) {
+            if (cursor.moveToNext()) {
+                Log.d(TAG, "onWeatherLoad: " + cursor.getInt(COL_WEATHER_ID));
+                mIconBitmap = BitmapFactory.decodeResource(getResources(),
+                        getWeatherIcon(cursor.getInt(COL_WEATHER_CONDITION_ID)));
+                mHighTemp = cursor.getFloat(COL_WEATHER_MAX_TEMP);
+                mLowTemp = cursor.getFloat(COL_WEATHER_MIN_TEMP);
+                invalidate();
+            }
+        }
+
+        private void cancelLoadWeatherTask() {
+            if (mLoadWeatherTask != null) {
+                mLoadWeatherTask.cancel(true);
+            }
+        }
 
         @Override  // GoogleApiClient.ConnectionCallbacks
         public void onConnected(Bundle connectionHint) {
@@ -391,7 +430,7 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
                 Log.d(TAG, "onConnected: " + connectionHint);
             }
             // Wearable.DataApi.addListener(mGoogleApiClient, Engine.this);
-            // updateLocationSettingOnStartUp();
+            // updateWatchFaceOnStartUp();
         }
 
         @Override  // GoogleApiClient.ConnectionCallbacks
