@@ -18,8 +18,8 @@ import com.google.android.gms.wearable.Wearable;
  */
 public class SunshineWatchFaceUtility {
     private static final String TAG = "SunshineWatchFaceUtil";
-    private static final String KEY_LOCATION = "LOCATION";
-    private static final String PATH_WITH_FEATURE = "/sunshine";
+
+    public static final String PATH_WITH_FEATURE = "/sunshine";
 
     public interface FetchConfigDataMapCallback {
         void onConfigDataMapFetched(DataMap config);

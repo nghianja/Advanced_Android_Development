@@ -38,7 +38,8 @@ import java.util.Locale;
 
 public class Utility {
     private static final String TAG = "Utility";
-    private static final String PATH_WITH_FEATURE = "/sunshine";
+
+    public static final String PATH_WITH_FEATURE = "/sunshine";
 
     // We'll default our latlong to 0. Yay, "Earth!"
     public static float DEFAULT_LATLONG = 0F;

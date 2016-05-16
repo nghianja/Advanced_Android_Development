@@ -41,7 +41,6 @@ public class WatchFaceCompanionActivity extends Activity
     private static final String KEY_MAXTEMP = "MAXTEMP";
     private static final String KEY_MINTEMP = "MINTEMP";
 
-    private static final String PATH_WITH_FEATURE = "/sunshine";
     private static final int FORECAST_LOADER = 1;
 
     private static final String[] FORECAST_COLUMNS = {
@@ -106,7 +105,7 @@ public class WatchFaceCompanionActivity extends Activity
 
         if (mPeerId != null) {
             Uri.Builder builder = new Uri.Builder();
-            Uri uri = builder.scheme("wear").path(PATH_WITH_FEATURE).authority(mPeerId).build();
+            Uri uri = builder.scheme("wear").path(Utility.PATH_WITH_FEATURE).authority(mPeerId).build();
             Wearable.DataApi.getDataItem(mGoogleApiClient, uri).setResultCallback(this);
         } else {
             displayNoConnectedDeviceDialog();
@@ -149,7 +148,7 @@ public class WatchFaceCompanionActivity extends Activity
         if (data.moveToNext()) {
             Log.d(TAG, "onLoadFinished: " + data.getInt(COL_WEATHER_ID));
 
-            PutDataMapRequest putDataMapReq = PutDataMapRequest.create(PATH_WITH_FEATURE);
+            PutDataMapRequest putDataMapReq = PutDataMapRequest.create(Utility.PATH_WITH_FEATURE);
             putDataMapReq.getDataMap().putString(KEY_LOCATION, mLocation.getText().toString());
             putDataMapReq.getDataMap().putString(KEY_DATETIME, mDatetime.getText().toString());
             putDataMapReq.getDataMap().putInt(KEY_FORECAST, data.getInt(COL_WEATHER_CONDITION_ID));
