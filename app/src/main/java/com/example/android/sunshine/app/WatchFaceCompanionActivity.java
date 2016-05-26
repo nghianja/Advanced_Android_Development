@@ -32,11 +32,11 @@ public class WatchFaceCompanionActivity extends Activity
         ResultCallback<DataApi.DataItemResult>, LoaderManager.LoaderCallbacks<Cursor> {
     private static final String TAG = "WatchFaceCompanion";
 
-    private static final String KEY_LOCATION = "LOCATION";
-    private static final String KEY_DATETIME = "DATETIME";
-    private static final String KEY_FORECAST = "FORECAST";
-    private static final String KEY_MAXTEMP = "MAXTEMP";
-    private static final String KEY_MINTEMP = "MINTEMP";
+    public static final String KEY_LOCATION = "LOCATION";
+    public static final String KEY_DATETIME = "DATETIME";
+    public static final String KEY_FORECAST = "FORECAST";
+    public static final String KEY_MAXTEMP = "MAXTEMP";
+    public static final String KEY_MINTEMP = "MINTEMP";
 
     private static final int FORECAST_LOADER = 1;
 
@@ -151,7 +151,7 @@ public class WatchFaceCompanionActivity extends Activity
 
             DataMap dataMap = new DataMap();
             dataMap.putString(KEY_LOCATION, mLocation.getText().toString());
-            dataMap.putString(KEY_DATETIME, mDatetime.getText().toString());
+            dataMap.putLong(KEY_DATETIME, Long.parseLong(mDatetime.getText().toString()));
             dataMap.putInt(KEY_FORECAST, data.getInt(COL_WEATHER_CONDITION_ID));
             dataMap.putFloat(KEY_MAXTEMP, data.getFloat(COL_WEATHER_MAX_TEMP));
             dataMap.putFloat(KEY_MINTEMP, data.getFloat(COL_WEATHER_MIN_TEMP));

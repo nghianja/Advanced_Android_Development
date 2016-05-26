@@ -421,6 +421,9 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
 
         @Override // DataApi.DataListener
         public void onDataChanged(DataEventBuffer dataEvents) {
+            if (Log.isLoggable(TAG, Log.DEBUG)) {
+                Log.d(TAG, "onDataChanged: " + dataEvents);
+            }
             for (DataEvent dataEvent : dataEvents) {
                 if (dataEvent.getType() != DataEvent.TYPE_CHANGED) {
                     continue;
@@ -474,7 +477,9 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
 
         private void onWeatherLoaded(Cursor cursor) {
             if (cursor.moveToNext()) {
-                Log.d(TAG, "onWeatherLoad: " + cursor.getInt(COL_WEATHER_ID));
+                if (Log.isLoggable(TAG, Log.DEBUG)) {
+                    Log.d(TAG, "onWeatherLoad: " + cursor.getInt(COL_WEATHER_ID));
+                }
                 mIconBitmap = BitmapFactory.decodeResource(getResources(),
                         getWeatherIcon(cursor.getInt(COL_WEATHER_CONDITION_ID)));
                 mHighTemp = cursor.getFloat(COL_WEATHER_MAX_TEMP);
